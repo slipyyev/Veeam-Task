@@ -5,7 +5,12 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
-            "args": ["./sourceFolder", "./myReplicaFolder", "./logging/log.txt", "15"],
+            "args": [
+                ".//source/mySource/", 
+                ".\\replicaFolder", 
+                ".\\logging\\testing//log.txt", 
+                "10"
+            ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
