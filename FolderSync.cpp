@@ -5,6 +5,8 @@
 #include <set>
 #include <algorithm>
 #include <unistd.h>
+#include <openssl/evp.h>
+#include <openssl/md5.h>
 #include <ctime>
 
 namespace fs = std::filesystem; 
@@ -20,17 +22,46 @@ const std::string ARGUMENTS_DESCRIPTION =
 
 void syncFolders(const fs::path & sourcePath, const fs::path & replicaPath, const fs::path & logPath);
 
+
+std::string calculateMD5(const std::string& filename) {
+    std::ifstream file(filename, std::ifstream::binary);
+    if (!file) {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        return "";
+    }
+
+    EVP_MD_CTX* mdContext = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(mdContext, EVP_md5(), NULL);
+
+    char buffer[1024];
+    while (file.good()) {
+        file.read(buffer, sizeof(buffer));
+        EVP_DigestUpdate(mdContext, buffer, file.gcount());
+    }
+
+    unsigned char hash[MD5_DIGEST_LENGTH];
+    unsigned int hashLength;
+    EVP_DigestFinal_ex(mdContext, hash, &hashLength);
+
+    EVP_MD_CTX_free(mdContext);
+
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (unsigned int i = 0; i < hashLength; ++i) {
+        ss << std::setw(2) << static_cast<unsigned>(hash[i]);
+    }
+
+    return ss.str();
+}
+
 bool filesHaveSameHash(const fs::path & sourcePath, const fs::path & replicaPath) {
     
-    // TODO: FINISH FUNCTION 
-    // TODO: FINISH FUNCTION 
-    // TODO: FINISH FUNCTION 
-    // TODO: FINISH FUNCTION 
-    // TODO: FINISH FUNCTION 
-    // TODO: FINISH FUNCTION 
-    // TODO: FINISH FUNCTION 
+    std::string sourceMD5Hash = calculateMD5(sourcePath.string());
+    std::string replicaMD5Hash = calculateMD5(replicaPath.string());
     
-    
+    if (sourceMD5Hash != replicaMD5Hash)
+        return false;
+
     return true;
 }
 
@@ -75,14 +106,6 @@ bool addNewlyCreatedFiles(const fs::path & sourcePath, const fs::path & replicaP
 
 
 void syncFolders(const fs::path & sourcePath, const fs::path & replicaPath, const fs::path & logPath) {
-
-    std::time_t currentTime = std::time(nullptr);
-    std::string timeString;
-
-    timeString = std::ctime(&currentTime);
-    // Erasing the newline at the end of string
-    timeString.erase(timeString.length() - 1);
-    std::cout << "[" << timeString << "] Sync happens" << std::endl;
     
     std::set<fs::path> filesInSource;
     std::set<fs::path> filesInReplica;
@@ -174,8 +197,15 @@ void runSynchronisationLoop(const fs::path & sourcePath, const fs::path & replic
     std::ofstream outfile;
     outfile.open (logPath, std::ofstream::out | std::ofstream::app);
 
+    std::time_t currentTime = std::time(nullptr);
+    std::string timeString;
 
     while (true) {
+
+        timeString = std::ctime(&currentTime);
+        // Erasing the newline at the end of string
+        timeString.erase(timeString.length() - 1);
+        std::cout << "[" << timeString << "] Sync happens" << std::endl;
 
         syncFolders(sourcePath, replicaPath, logPath);
 
