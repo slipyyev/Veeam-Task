@@ -2,7 +2,10 @@
 #include <string>
 #include <filesystem>
 #include <fstream>
+#include <set>
+#include <algorithm>
 #include <unistd.h>
+#include <ctime>
 
 namespace fs = std::filesystem; 
 
@@ -15,10 +18,134 @@ const std::string ARGUMENTS_DESCRIPTION =
     "Third argument — log file relative path\n"
     "Fourth argument — synchronization interval in seconds\n";
 
+void syncFolders(const fs::path & sourcePath, const fs::path & replicaPath, const fs::path & logPath);
+
+bool filesHaveSameHash(const fs::path & sourcePath, const fs::path & replicaPath) {
+    
+    // TODO: FINISH FUNCTION 
+    // TODO: FINISH FUNCTION 
+    // TODO: FINISH FUNCTION 
+    // TODO: FINISH FUNCTION 
+    // TODO: FINISH FUNCTION 
+    // TODO: FINISH FUNCTION 
+    // TODO: FINISH FUNCTION 
+    
+    
+    return true;
+}
+
+
+bool syncSameFiles(const fs::path & sourcePath, const fs::path & replicaPath, const fs::path & logPath, const std::set<fs::path> & sameFiles) {
+    
+    
+    for (const fs::path & f : sameFiles) {
+        if (fs::is_directory(sourcePath / f)) {
+            syncFolders(sourcePath / f, replicaPath / f, logPath);
+        }
+        else if (!filesHaveSameHash(sourcePath / f, replicaPath / f)) {
+            fs::remove_all(replicaPath / f);
+            fs::copy(sourcePath / f, replicaPath / f);
+            std::cout << "File " << f << " was updated from the replica folder" << std::endl;
+        }
+    }
+
+    return true;
+}
+
+bool eraseDeletedFiles(const fs::path & replicaPath, const fs::path & logPath, const std::set<fs::path> & inReplicaOnly) {
+
+    for (const fs::path & f : inReplicaOnly) {
+        fs::remove_all(replicaPath / f);
+        std::cout << "File " << f << " removed from the replica folder" << std::endl;
+    }
+
+    return true;
+}
+
+bool addNewlyCreatedFiles(const fs::path & sourcePath, const fs::path & replicaPath, const fs::path & logPath, const std::set<fs::path> & inSourceOnly) {
+
+    for (const fs::path & f : inSourceOnly) {
+        fs::copy(sourcePath / f, replicaPath / f, fs::copy_options::recursive);
+        std::cout << "File " << f << " added to the replica folder" << std::endl;
+    }
+
+    return true;
+}
 
 
 
-void runSynchronisationLoop(const fs::path sourcePath, const fs::path replicaPath, const fs::path logPath, int period) {
+void syncFolders(const fs::path & sourcePath, const fs::path & replicaPath, const fs::path & logPath) {
+
+    std::time_t currentTime = std::time(nullptr);
+    std::string timeString;
+
+    timeString = std::ctime(&currentTime);
+    // Erasing the newline at the end of string
+    timeString.erase(timeString.length() - 1);
+    std::cout << "[" << timeString << "] Sync happens" << std::endl;
+    
+    std::set<fs::path> filesInSource;
+    std::set<fs::path> filesInReplica;
+
+
+    for(const fs::directory_entry & dirEntry: fs::directory_iterator(sourcePath))
+        filesInSource.insert(dirEntry.path().filename());
+
+    for(const fs::directory_entry & dirEntry: fs::directory_iterator(replicaPath))
+        filesInReplica.insert(dirEntry.path().filename());
+
+    std::cout << "-------------------------------" << std::endl;
+    std::cout << "Files in source:" << std::endl;
+
+    for (auto p : filesInSource) {
+                std::cout << p << std::endl;
+    }
+
+
+    std::cout << "-------------------------------" << std::endl;
+    std::cout << "Files in replica:" << std::endl;
+
+    for (auto p : filesInReplica) {
+                std::cout << p << std::endl;
+    }
+
+    std::cout << "-------------------------------" << std::endl;
+
+    std::set<fs::path> sameFiles;
+
+    std::set_intersection(
+        filesInSource.begin(), filesInSource.end(), 
+        filesInReplica.begin(), filesInReplica.end(),                   
+        std::inserter(sameFiles, sameFiles.begin())
+    );
+
+    std::set<fs::path> inSourceOnly;
+    std::set<fs::path> inReplicaOnly;
+
+    std::set_difference(
+        filesInSource.begin(), filesInSource.end(), 
+        sameFiles.begin(), sameFiles.end(), 
+        std::inserter(inSourceOnly, inSourceOnly.begin())
+    );
+
+    std::set_difference(
+        filesInReplica.begin(), filesInReplica.end(), 
+        sameFiles.begin(), sameFiles.end(), 
+        std::inserter(inReplicaOnly, inReplicaOnly.begin())
+    );
+    
+
+    for (const auto & a : sameFiles ) {
+        std::cout << "Same file: " << a << std::endl;
+    }
+
+    syncSameFiles(sourcePath, replicaPath, logPath, sameFiles);
+    eraseDeletedFiles(replicaPath, logPath, inReplicaOnly);
+    addNewlyCreatedFiles(sourcePath, replicaPath, logPath, inSourceOnly);
+}
+
+
+void runSynchronisationLoop(const fs::path & sourcePath, const fs::path & replicaPath, const fs::path & logPath, int period) {
 
     if (!fs::exists(sourcePath)) {
         std::cout << "Source directory didn't exist, one was created" << std::endl;
@@ -39,7 +166,6 @@ void runSynchronisationLoop(const fs::path sourcePath, const fs::path replicaPat
 
     if (logFileTest.is_open()) {
         logFileTest.close();
-        std::cout << "Log file existssss" << std::endl;
     }
     else {
         std::cout << "Log file didn't exist, one was created" << std::endl;
@@ -51,7 +177,7 @@ void runSynchronisationLoop(const fs::path sourcePath, const fs::path replicaPat
 
     while (true) {
 
-        std::cout << "Hello" << std::endl;
+        syncFolders(sourcePath, replicaPath, logPath);
 
         usleep(period * MICROSECONDS_IN_ONE_SECOND);
     }
